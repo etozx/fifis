@@ -42,7 +42,7 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: momentum-redis
           property: connectionString
       - key: SESSION_SECRET
@@ -80,8 +80,9 @@ services:
       - key: VITE_API_BASE_URL
         sync: false
 
-  # --- Redis (sessions + cache) -----------------------------------------
-  - type: redis
+  # --- Key Value / Redis (sessions + cache) -----------------------------
+  # `keyvalue` is Render's current type; `redis` is a deprecated alias.
+  - type: keyvalue
     name: momentum-redis
     plan: free
     # Internal-only access from other Render services.
