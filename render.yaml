@@ -1,0 +1,90 @@
+# =========================================================================
+# Render Blueprint — Momentum (goal tracking & focus app)
+#
+# Provisions four resources as one deploy:
+#   1. momentum-api    — FastAPI backend (web service)
+#   2. momentum-web    — React/Vite frontend (static site)
+#   3. momentum-db     — managed PostgreSQL
+#   4. momentum-redis  — managed Redis (Key Value) for sessions + cache
+#
+# After the first deploy, set the two cross-referencing URL vars (marked
+# `sync: false`) in the dashboard, because each service needs the other's
+# public URL:
+#   - momentum-api  CORS_ORIGINS   = https://momentum-web.onrender.com
+#   - momentum-api  FRONTEND_URL   = https://momentum-web.onrender.com
+#   - momentum-web  VITE_API_BASE_URL = https://momentum-api.onrender.com
+# =========================================================================
+
+databases:
+  - name: momentum-db
+    databaseName: momentum
+    user: momentum
+    plan: free
+
+services:
+  # --- Backend API -------------------------------------------------------
+  - type: web
+    name: momentum-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: momentum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: momentum-redis
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SESSION_COOKIE_NAME
+        value: momentum_session
+      - key: SESSION_TTL_SECONDS
+        value: "604800"
+      # Cross-site cookie (static site <-> API on different subdomains) needs
+      # Secure + SameSite=None over HTTPS.
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: none
+      # Set to the frontend URL after first deploy.
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+  # --- Frontend static site ---------------------------------------------
+  - type: web
+    name: momentum-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    # SPA fallback so client-side routes resolve to index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # Set to the backend URL after first deploy (e.g. https://momentum-api.onrender.com).
+      - key: VITE_API_BASE_URL
+        sync: false
+
+  # --- Redis (sessions + cache) -----------------------------------------
+  - type: redis
+    name: momentum-redis
+    plan: free
+    # Internal-only access from other Render services.
+    ipAllowList: []
+    # Sessions must not be silently evicted, so disable eviction.
+    maxmemoryPolicy: noeviction
