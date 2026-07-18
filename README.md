@@ -171,9 +171,33 @@ GET    /health
 
 ---
 
+## Database schema & migrations
+The app auto-creates tables at startup (`create_all`) so it runs with zero
+setup, but for controlled schema management on PostgreSQL there is an explicit,
+idempotent migration generated from — and kept in sync with — the ORM models:
+
+```
+backend/migrations/0001_initial_schema.sql
+```
+
+Apply it to your Render Postgres (use the External connection string from your
+machine):
+
+```bash
+psql "$DATABASE_URL" -f backend/migrations/0001_initial_schema.sql
+```
+
+It creates the enum types, all six tables (`users`, `goals`, `tasks`,
+`focus_blocks`, `reminders`, `daily_advice`) and their indexes. Re-running it is
+safe (guarded enum creation + `IF NOT EXISTS`). Since it produces the same schema
+`create_all` would, the two coexist: whichever runs first wins, the other is a
+no-op.
+
+---
+
 ## Notable extension points (intentionally left as stubs)
 - **Reminder delivery:** a Render Cron Job polling `reminders WHERE is_active AND
   next_run_at <= now()`, dispatching notifications, and advancing `next_run_at`.
 - **LLM agent / advice:** drop-in implementations behind the existing interfaces.
-- **Migrations:** Alembic replaces the scaffold's `create_all` for production
-  schema management.
+- **Versioned migrations:** the SQL migration above can be adopted into Alembic
+  when incremental schema changes begin.
