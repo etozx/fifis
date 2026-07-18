@@ -33,8 +33,11 @@ services:
     envVars:
       - key: ENV
         value: production
+      # Pin Python to a version with prebuilt wheels for pydantic-core et al.
+      # (3.14 has no wheels yet -> source build via Rust fails). Also set in the
+      # repo-level `.python-version` file so manual dashboard deploys pin too.
       - key: PYTHON_VERSION
-        value: "3.11"
+        value: "3.12.8"
       - key: DATABASE_URL
         fromDatabase:
           name: momentum-db
