@@ -140,8 +140,8 @@ CORS setup). `render.yaml` provisions three resources:
 - **momentum** — Python web service that also serves the built SPA.
   `healthCheckPath: /api/v1/health`; `DATABASE_URL`/`REDIS_URL` wired
   automatically from the managed resources.
-  - **Build:** `cd frontend && npm ci && npm run build && cd ../backend && pip install -r requirements.txt`
-  - **Start:** `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+  - **Build Command:** `./build.sh` (builds the frontend, installs backend deps)
+  - **Start Command:** `./start.sh` (runs uvicorn, which serves the built UI)
 - **momentum-db** — managed PostgreSQL. (The app normalizes the `postgresql://`
   connection string to the `+asyncpg` driver at startup, so no manual editing.)
 - **momentum-redis** — managed Redis with `noeviction` so sessions aren't dropped.

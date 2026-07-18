@@ -24,11 +24,11 @@ services:
     name: momentum
     runtime: python
     plan: free
-    # Build the frontend, then install the backend. Render's native build
-    # environment includes Node/npm, so both steps run in one build.
-    buildCommand: cd frontend && npm ci && npm run build && cd ../backend && pip install -r requirements.txt
-    # Run from backend/ so `app.main:app` resolves; it serves ../frontend/dist.
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # build.sh builds the frontend (Node is available in Render's build phase)
+    # then installs backend deps; start.sh runs uvicorn, which serves the built
+    # UI from frontend/dist. Same scripts work in the manual-dashboard setup.
+    buildCommand: ./build.sh
+    startCommand: ./start.sh
     healthCheckPath: /api/v1/health
     envVars:
       - key: ENV
