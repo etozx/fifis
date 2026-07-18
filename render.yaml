@@ -1,0 +1,67 @@
+# =========================================================================
+# Render Blueprint — Momentum (goal tracking & focus app)
+#
+# Single-service architecture: ONE web service builds the React frontend and
+# serves it from FastAPI alongside the API, so the UI and API share one origin.
+# Provisions three resources:
+#   1. momentum      — FastAPI backend that also serves the built React SPA
+#   2. momentum-db   — managed PostgreSQL
+#   3. momentum-redis — managed Redis (Key Value) for sessions + cache
+#
+# Because UI and API are same-origin, there is NO cross-site cookie/CORS setup
+# and nothing to wire up manually after the first deploy.
+# =========================================================================
+
+databases:
+  - name: momentum-db
+    databaseName: momentum
+    user: momentum
+    plan: free
+
+services:
+  # --- Combined web service (API + built UI) ----------------------------
+  - type: web
+    name: momentum
+    runtime: python
+    plan: free
+    # build.sh builds the frontend (Node is available in Render's build phase)
+    # then installs backend deps; start.sh runs uvicorn, which serves the built
+    # UI from frontend/dist. Same scripts work in the manual-dashboard setup.
+    buildCommand: ./build.sh
+    startCommand: ./start.sh
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: momentum-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: momentum-redis
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SESSION_COOKIE_NAME
+        value: momentum_session
+      - key: SESSION_TTL_SECONDS
+        value: "604800"
+      # Same-origin cookie over HTTPS: Secure + SameSite=Lax (no cross-site needed).
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: lax
+
+  # --- Key Value / Redis (sessions + cache) -----------------------------
+  # `keyvalue` is Render's current type; `redis` is a deprecated alias.
+  - type: keyvalue
+    name: momentum-redis
+    plan: free
+    # Internal-only access from other Render services.
+    ipAllowList: []
+    # Sessions must not be silently evicted, so disable eviction.
+    maxmemoryPolicy: noeviction
