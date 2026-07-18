@@ -172,26 +172,33 @@ GET    /health
 ---
 
 ## Database schema & migrations
-The app auto-creates tables at startup (`create_all`) so it runs with zero
-setup, but for controlled schema management on PostgreSQL there is an explicit,
-idempotent migration generated from — and kept in sync with — the ORM models:
+Migrations live in `backend/migrations/*.sql` and are applied **automatically on
+every deploy** by `backend/migrate.py`, which `start.sh` runs before the server
+boots. The runner:
 
-```
-backend/migrations/0001_initial_schema.sql
-```
+- creates a `schema_migrations` tracking table,
+- applies every migration file not yet recorded, in filename order, each in its
+  own transaction, and
+- is a **no-op once the schema is current** — so it's safe to run on every
+  deploy/restart (it only applies what has never run before).
 
-Apply it to your Render Postgres (use the External connection string from your
-machine):
+The initial migration (`0001_initial_schema.sql`) is generated from — and kept in
+sync with — the SQLAlchemy models: it creates the enum types, all six tables
+(`users`, `goals`, `tasks`, `focus_blocks`, `reminders`, `daily_advice`) and
+their indexes. It's idempotent on its own too (guarded enum creation +
+`IF NOT EXISTS`).
+
+On **non-PostgreSQL** databases (local sqlite dev) the runner does nothing;
+there `create_all` builds the schema so `uvicorn --reload` works with zero setup.
+
+To apply migrations manually (e.g. from your machine, using the External URL):
 
 ```bash
-psql "$DATABASE_URL" -f backend/migrations/0001_initial_schema.sql
+psql --single-transaction "$DATABASE_URL" -f backend/migrations/0001_initial_schema.sql
 ```
 
-It creates the enum types, all six tables (`users`, `goals`, `tasks`,
-`focus_blocks`, `reminders`, `daily_advice`) and their indexes. Re-running it is
-safe (guarded enum creation + `IF NOT EXISTS`). Since it produces the same schema
-`create_all` would, the two coexist: whichever runs first wins, the other is a
-no-op.
+**Adding a migration:** drop a new `NNNN_description.sql` in `backend/migrations/`
+(higher number = later). It runs on the next deploy.
 
 ---
 
