@@ -9,12 +9,12 @@
 -- backend/app/models/. It is idempotent (guarded enum creation +
 -- IF NOT EXISTS), so re-running it is safe.
 --
--- Run against your Render Postgres, e.g.:
---   psql "$DATABASE_URL" -f backend/migrations/0001_initial_schema.sql
+-- Applied automatically on each deploy by backend/migrate.py (which wraps this
+-- file in a transaction and records it in schema_migrations). To run it by hand
+-- atomically, use psql's single-transaction flag:
+--   psql --single-transaction "$DATABASE_URL" -f backend/migrations/0001_initial_schema.sql
 -- (Use the External connection string when running from your machine.)
 -- =========================================================================
-
-BEGIN;
 
 -- --- Enum types ----------------------------------------------------------
 DO $$ BEGIN
@@ -125,5 +125,3 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS ix_tasks_id ON tasks (id);
 CREATE INDEX IF NOT EXISTS ix_tasks_goal_id ON tasks (goal_id);
-
-COMMIT;
