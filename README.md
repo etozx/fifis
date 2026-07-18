@@ -7,7 +7,7 @@ intelligence** — not just a log.
 
 - **Backend:** FastAPI (async) · PostgreSQL · Redis
 - **Frontend:** React · Vite · Tailwind CSS · Recharts
-- **Hosting:** Render (web service + static site + Postgres + Redis)
+- **Hosting:** Render — one web service (API serves the built UI) + Postgres + Redis
 
 ---
 
@@ -133,18 +133,25 @@ The tradeoff — cross-site cookies between the static frontend and the API on
 different Render subdomains — is handled with `Secure` + `SameSite=None` cookies
 and credentialed CORS restricted to an explicit origin allowlist.
 
-### Deployment on Render
-`render.yaml` provisions everything as one blueprint:
-- **momentum-api** — Python web service; `healthCheckPath: /api/v1/health`;
-  `DATABASE_URL` and `REDIS_URL` wired automatically from the managed resources.
-- **momentum-web** — static site built with Vite; SPA rewrite to `index.html`.
+### Deployment on Render (single service)
+The app deploys as **one web service** that builds the React frontend and serves
+it from FastAPI, so the UI and API share a single origin (no cross-site cookie or
+CORS setup). `render.yaml` provisions three resources:
+- **momentum** — Python web service that also serves the built SPA.
+  `healthCheckPath: /api/v1/health`; `DATABASE_URL`/`REDIS_URL` wired
+  automatically from the managed resources.
+  - **Build:** `cd frontend && npm ci && npm run build && cd ../backend && pip install -r requirements.txt`
+  - **Start:** `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 - **momentum-db** — managed PostgreSQL. (The app normalizes the `postgresql://`
   connection string to the `+asyncpg` driver at startup, so no manual editing.)
 - **momentum-redis** — managed Redis with `noeviction` so sessions aren't dropped.
 
-After the first deploy, set the three cross-referencing URL variables noted at
-the top of `render.yaml` (frontend URL on the API for CORS, API URL on the
-frontend).
+FastAPI serves `frontend/dist` when present (`FRONTEND_DIST_DIR`), returning
+`index.html` for client-side routes so React Router works on a hard refresh; API
+routes (`/api/v1/*`) and `/docs` always take precedence. Nothing to wire up
+manually after deploy. (To split into a separate static site instead, host
+`frontend/dist` on a CDN and set `COOKIE_SAMESITE=none` + `CORS_ORIGINS` on the
+API.)
 
 ---
 

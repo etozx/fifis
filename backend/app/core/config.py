@@ -46,7 +46,16 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed browser origins for credentialed CORS.
     # Kept as a raw string (not List[str]) so pydantic-settings doesn't try to
     # JSON-parse the env value; `cors_origins` exposes the parsed list.
+    # Only relevant when the frontend is served from a *different* origin; in the
+    # combined single-service deployment (API serves the built SPA) it's unused.
     CORS_ORIGINS: str = "http://localhost:5173"
+
+    # --- Static frontend ---------------------------------------------------
+    # Path to the built React app (Vite `dist`). When present, FastAPI serves it
+    # so one service hosts both the API and the UI (same origin). Default is
+    # relative to the backend working directory (`backend/`), i.e. `frontend/dist`
+    # at the repo root.
+    FRONTEND_DIST_DIR: str = "../frontend/dist"
 
     @property
     def cors_origins(self) -> list[str]:
